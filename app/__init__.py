@@ -1,0 +1,1 @@
+"""Infra Pilot application package."""

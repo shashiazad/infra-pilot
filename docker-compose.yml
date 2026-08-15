@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: infra-pilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: infra_pilot
+      POSTGRES_PASSWORD: infra_pilot
+      POSTGRES_DB: infra_pilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
