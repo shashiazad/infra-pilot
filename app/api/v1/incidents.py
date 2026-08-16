@@ -1,24 +1,41 @@
 import uuid
+from collections.abc import AsyncIterable
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
+from fastapi.sse import (
+    EventSourceResponse,
+    ServerSentEvent,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.repositories.incident_repository import IncidentRepository
 from app.schemas.incident import (
     IncidentCreate,
     IncidentResponse,
     IncidentUpdate,
 )
-from app.schemas.investigation import InvestigationResult
+from app.schemas.investigation import (
+    InvestigationRunResponse,
+    InvestigationSummaryResponse,
+)
 from app.services.incident_service import IncidentService
 from app.services.investigation_service import InvestigationService
+
 
 router = APIRouter(
     prefix="/incidents",
     tags=["Incidents"],
 )
 
+
+# -------------------------------------------------------------------
+# CREATE INCIDENT
+# -------------------------------------------------------------------
 
 @router.post(
     "",
@@ -35,6 +52,10 @@ async def create_incident(
     return await service.create_incident(data)
 
 
+# -------------------------------------------------------------------
+# GET ALL INCIDENTS
+# -------------------------------------------------------------------
+
 @router.get(
     "",
     response_model=list[IncidentResponse],
@@ -48,6 +69,10 @@ async def get_incidents(
     return await service.get_incidents()
 
 
+# -------------------------------------------------------------------
+# GET INCIDENT BY ID
+# -------------------------------------------------------------------
+
 @router.get(
     "/{incident_id}",
     response_model=IncidentResponse,
@@ -59,7 +84,9 @@ async def get_incident(
 
     service = IncidentService(session)
 
-    incident = await service.get_incident(incident_id)
+    incident = await service.get_incident(
+        incident_id
+    )
 
     if incident is None:
         raise HTTPException(
@@ -69,6 +96,10 @@ async def get_incident(
 
     return incident
 
+
+# -------------------------------------------------------------------
+# UPDATE INCIDENT
+# -------------------------------------------------------------------
 
 @router.patch(
     "/{incident_id}",
@@ -96,6 +127,10 @@ async def update_incident(
     return incident
 
 
+# -------------------------------------------------------------------
+# DELETE INCIDENT
+# -------------------------------------------------------------------
+
 @router.delete(
     "/{incident_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -107,7 +142,9 @@ async def delete_incident(
 
     service = IncidentService(session)
 
-    deleted = await service.delete_incident(incident_id)
+    deleted = await service.delete_incident(
+        incident_id
+    )
 
     if not deleted:
         raise HTTPException(
@@ -116,22 +153,25 @@ async def delete_incident(
         )
 
 
+# -------------------------------------------------------------------
+# RUN INVESTIGATION
+# -------------------------------------------------------------------
+
 @router.post(
     "/{incident_id}/investigate",
-    response_model=InvestigationResult,
+    response_model=InvestigationRunResponse,
 )
 async def investigate_incident(
     incident_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-) -> InvestigationResult:
+) -> InvestigationRunResponse:
 
-    repository = IncidentRepository(session)
-
-    service = InvestigationService()
+    service = InvestigationService(
+        session
+    )
 
     result = await service.investigate(
-        incident_id,
-        repository,
+        incident_id
     )
 
     if result is None:
@@ -141,3 +181,68 @@ async def investigate_incident(
         )
 
     return result
+
+
+# -------------------------------------------------------------------
+# STREAM INVESTIGATION USING SSE
+# -------------------------------------------------------------------
+
+@router.post(
+    "/{incident_id}/investigate/stream",
+    response_class=EventSourceResponse,
+)
+async def stream_incident_investigation(
+    incident_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> AsyncIterable[ServerSentEvent]:
+
+    service = InvestigationService(
+        session
+    )
+
+    async for event in service.stream_investigation(
+        incident_id
+    ):
+        yield ServerSentEvent(
+            event=event["event"],
+            data=event["data"],
+        )
+
+
+# -------------------------------------------------------------------
+# GET INVESTIGATION HISTORY FOR INCIDENT
+# -------------------------------------------------------------------
+
+@router.get(
+    "/{incident_id}/investigations",
+    response_model=list[InvestigationSummaryResponse],
+)
+async def get_incident_investigations(
+    incident_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> list[InvestigationSummaryResponse]:
+
+    incident_service = IncidentService(
+        session
+    )
+
+    incident = await incident_service.get_incident(
+        incident_id
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Incident not found",
+        )
+
+    investigation_service = InvestigationService(
+        session
+    )
+
+    return await (
+        investigation_service
+        .get_incident_investigations(
+            incident_id
+        )
+    )

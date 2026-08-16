@@ -1,20 +1,14 @@
 import asyncio
 
-from mcp import Client, StdioServerParameters
+from mcp import Client
 from mcp.client.stdio import stdio_client
 from mcp_types import TextContent
 
+from app.mcp.client import get_infrastructure_server_params
+
 
 async def main() -> None:
-    params = StdioServerParameters(
-        command="uv",
-        args=[
-            "run",
-            "mcp",
-            "run",
-            "app/mcp/servers/infrastructure.py",
-        ],
-    )
+    params = get_infrastructure_server_params()
 
     async with Client(stdio_client(params)) as client:
         tools = await client.list_tools()

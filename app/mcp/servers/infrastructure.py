@@ -1,96 +1,386 @@
 from typing import Any
 
+from kubernetes.client.exceptions import ApiException
 from mcp.server import MCPServer
+
+from app.infrastructure.prometheus_client import (
+    query_prometheus,
+)
+from app.infrastructure.kubernetes_client import (
+    get_apps_api,
+    get_core_api,
+    get_custom_objects_api,
+)
 
 mcp = MCPServer("InfraPilot Infrastructure")
 
 
 @mcp.tool()
-def get_service_logs(service: str) -> dict[str, Any]:
+def get_service_logs(
+    service: str,
+    namespace: str = "infrapilot-demo",
+) -> dict[str, Any]:
     """
-    Retrieve recent application logs for an infrastructure service.
+    Retrieve recent Kubernetes pod logs for a service.
 
-    Use this when investigating application failures,
-    HTTP errors, crashes, or unexpected service behavior.
+    Use when investigating application errors,
+    crashes, or unexpected service behavior.
     """
 
-    mock_logs = {
-        "payment-service": {
-            "service": "payment-service",
-            "entries": [
-                {
-                    "level": "ERROR",
-                    "message": "database connection timeout",
-                },
-                {
-                    "level": "ERROR",
-                    "message": "failed to process payment request",
-                },
-                {
-                    "level": "ERROR",
-                    "message": "database connection timeout",
-                },
-            ],
-        }
-    }
+    api = get_core_api()
 
-    return mock_logs.get(
-        service,
-        {
+    try:
+        pods = api.list_namespaced_pod(
+            namespace=namespace,
+            label_selector=f"app={service}",
+        )
+
+        results = []
+
+        for pod in pods.items:
+
+            pod_name = pod.metadata.name
+
+            logs = api.read_namespaced_pod_log(
+                name=pod_name,
+                namespace=namespace,
+                tail_lines=50,
+            )
+
+            if isinstance(logs, bytes):
+                logs = logs.decode(
+                    "utf-8",
+                    errors="replace",
+                )
+
+            results.append(
+                {
+                    "pod": pod_name,
+                    "logs": logs.splitlines(),
+                }
+            )
+
+        return {
             "service": service,
-            "entries": [],
-            "message": "No recent error logs found.",
-        },
-    )
+            "namespace": namespace,
+            "pods": results,
+        }
+
+    except ApiException as exc:
+
+        return {
+            "service": service,
+            "namespace": namespace,
+            "error": str(exc),
+        }
 
 
 @mcp.tool()
-def get_service_metrics(service: str) -> dict[str, Any]:
+def get_service_metrics(
+    service: str,
+    namespace: str = "infrapilot-demo",
+) -> dict[str, Any]:
     """
-    Retrieve CPU, memory, latency and error-rate metrics
-    for an infrastructure service.
+    Retrieve current Kubernetes CPU and memory usage
+    for pods belonging to a service.
     """
 
-    mock_metrics = {
-        "payment-service": {
-            "service": "payment-service",
-            "cpu_usage_percent": 42,
-            "memory_usage_percent": 68,
-            "http_5xx_rate_percent": 31,
-            "p95_latency_ms": 2800,
+    metrics_api = get_custom_objects_api()
+    core_api = get_core_api()
+
+    try:
+        pods = core_api.list_namespaced_pod(
+            namespace=namespace,
+            label_selector=f"app={service}",
+        )
+
+        pod_names = {
+            pod.metadata.name
+            for pod in pods.items
         }
-    }
 
-    return mock_metrics.get(
-        service,
-        {
+        metrics = (
+            metrics_api.list_namespaced_custom_object(
+                group="metrics.k8s.io",
+                version="v1beta1",
+                namespace=namespace,
+                plural="pods",
+            )
+        )
+
+        results = []
+
+        for item in metrics.get(
+            "items",
+            [],
+        ):
+            pod_name = item[
+                "metadata"
+            ]["name"]
+
+            if pod_name not in pod_names:
+                continue
+
+            containers = []
+
+            for container in item.get(
+                "containers",
+                [],
+            ):
+                usage = container[
+                    "usage"
+                ]
+
+                containers.append(
+                    {
+                        "name": container["name"],
+                        "cpu": usage.get(
+                            "cpu"
+                        ),
+                        "memory": usage.get(
+                            "memory"
+                        ),
+                    }
+                )
+
+            results.append(
+                {
+                    "pod": pod_name,
+                    "containers": containers,
+                }
+            )
+
+        return {
             "service": service,
-            "message": "No metrics available.",
-        },
-    )
+            "namespace": namespace,
+            "pods": results,
+        }
+
+    except ApiException as exc:
+        return {
+            "service": service,
+            "namespace": namespace,
+            "error": str(exc),
+        }
 
 
 @mcp.tool()
-def get_deployment_status(service: str) -> dict[str, Any]:
+async def get_application_metrics(
+    service: str,
+    namespace: str = "infrapilot-demo",
+) -> dict[str, Any]:
     """
-    Retrieve deployment health, replica state and
-    recent deployment information for a service.
+    Retrieve application-level HTTP metrics
+    from Prometheus.
     """
 
-    mock_deployments = {
-        "payment-service": {
-            "service": "payment-service",
-            "deployment_status": "healthy",
-            "ready_replicas": 3,
-            "desired_replicas": 3,
-            "last_deployment": "2026-08-15T18:30:00Z",
-        }
+    error_rate_query = """
+    100 *
+    (
+        sum(
+            rate(
+                payment_http_requests_total{
+                    status=~"5.."
+                }[5m]
+            )
+        )
+        /
+        sum(
+            rate(
+                payment_http_requests_total[5m]
+            )
+        )
+    )
+    """
+
+    p95_latency_query = """
+    1000 *
+    histogram_quantile(
+        0.95,
+        sum by (le) (
+            rate(
+                payment_http_request_duration_seconds_bucket[5m]
+            )
+        )
+    )
+    """
+
+    error_rate = await query_prometheus(
+        error_rate_query
+    )
+
+    p95_latency = await query_prometheus(
+        p95_latency_query
+    )
+
+    return {
+        "service": service,
+        "namespace": namespace,
+        "http_5xx_rate_percent": error_rate,
+        "p95_latency_ms": p95_latency,
     }
 
-    return mock_deployments.get(
-        service,
-        {
+@mcp.tool()
+def get_deployment_status(
+    service: str,
+    namespace: str = "infrapilot-demo",
+) -> dict[str, Any]:
+    """
+    Retrieve Kubernetes deployment status and replica health.
+    """
+
+    api = get_apps_api()
+
+    try:
+
+        deployment = (
+            api.read_namespaced_deployment(
+                name=service,
+                namespace=namespace,
+            )
+        )
+
+        return {
             "service": service,
-            "message": "No deployment information found.",
-        },
-    )
+            "namespace": namespace,
+
+            "replicas": (
+                deployment.status.replicas or 0
+            ),
+
+            "ready_replicas": (
+                deployment.status.ready_replicas
+                or 0
+            ),
+
+            "available_replicas": (
+                deployment.status.available_replicas
+                or 0
+            ),
+
+            "unavailable_replicas": (
+                deployment.status.unavailable_replicas
+                or 0
+            ),
+
+            "updated_replicas": (
+                deployment.status.updated_replicas
+                or 0
+            ),
+        }
+
+    except ApiException as exc:
+
+        return {
+            "service": service,
+            "namespace": namespace,
+            "error": str(exc),
+        }
+
+@mcp.tool()
+def get_pod_status(
+    service: str,
+    namespace: str = "infrapilot-demo",
+) -> dict[str, Any]:
+
+    api = get_core_api()
+
+    try:
+        pods = api.list_namespaced_pod(
+            namespace=namespace,
+            label_selector=f"app={service}",
+        )
+
+        results = []
+
+        for pod in pods.items:
+            containers = []
+
+            for container in (
+                pod.status.container_statuses or []
+            ):
+                containers.append(
+                    {
+                        "name": container.name,
+                        "ready": container.ready,
+                        "restart_count": container.restart_count,
+                    }
+                )
+
+            results.append(
+                {
+                    "pod": pod.metadata.name,
+                    "phase": pod.status.phase,
+                    "pod_ip": pod.status.pod_ip,
+                    "containers": containers,
+                }
+            )
+
+        return {
+            "service": service,
+            "namespace": namespace,
+            "pods": results,
+        }
+
+    except ApiException as exc:
+        return {
+            "service": service,
+            "namespace": namespace,
+            "error": str(exc),
+        }
+
+@mcp.tool()
+def get_pod_events(
+    service: str,
+    namespace: str = "infrapilot-demo",
+) -> dict[str, Any]:
+
+    api = get_core_api()
+
+    try:
+        pods = api.list_namespaced_pod(
+            namespace=namespace,
+            label_selector=f"app={service}",
+        )
+
+        pod_names = {
+            pod.metadata.name
+            for pod in pods.items
+        }
+
+        events = api.list_namespaced_event(
+            namespace=namespace
+        )
+
+        results = []
+
+        for event in events.items:
+            involved_name = (
+                event.involved_object.name
+            )
+
+            if involved_name not in pod_names:
+                continue
+
+            results.append(
+                {
+                    "pod": involved_name,
+                    "type": event.type,
+                    "reason": event.reason,
+                    "message": event.message,
+                    "count": event.count,
+                }
+            )
+
+        return {
+            "service": service,
+            "namespace": namespace,
+            "events": results,
+        }
+
+    except ApiException as exc:
+        return {
+            "service": service,
+            "namespace": namespace,
+            "error": str(exc),
+        }

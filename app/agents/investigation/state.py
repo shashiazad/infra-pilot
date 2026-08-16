@@ -1,7 +1,11 @@
 from typing import Annotated, TypedDict
 
-from langchain_core.messages import BaseMessage
-from langgraph.graph.message import add_messages
+from langchain_core.messages import (
+    BaseMessage,
+)
+from langgraph.graph.message import (
+    add_messages,
+)
 
 
 class InvestigationState(TypedDict):
@@ -20,10 +24,16 @@ class InvestigationState(TypedDict):
 
     evidence: list[dict]
 
+    runbooks: list[dict]
+
+    historical_incidents: list[dict]
+
     tool_iterations: int
 
     max_tool_iterations: int
 
     analysis: dict
+
+    remediation_proposal: dict
 
     final_result: dict

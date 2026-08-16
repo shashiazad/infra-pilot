@@ -1,7 +1,9 @@
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.investigation.nodes import (
+    HistoricalContextProvider,
     agent_node,
     analyze_evidence,
     classify_incident,
@@ -9,17 +11,26 @@ from app.agents.investigation.nodes import (
     create_investigation_plan,
     finalize_investigation,
     increment_tool_iteration,
+    propose_remediation,
+    retrieve_historical_incidents,
+    retrieve_relevant_runbooks,
 )
 from app.agents.investigation.routing import route_agent
 from app.agents.investigation.state import InvestigationState
 from app.mcp.tools import load_infrastructure_tools
 
 
-async def build_investigation_graph():
+async def build_investigation_graph(
+    session: AsyncSession,
+    investigation_service: HistoricalContextProvider,
+):
 
     tools = await load_infrastructure_tools()
 
-    tool_node = ToolNode(tools)
+    tool_node = ToolNode(
+        tools,
+        handle_tool_errors=True,
+    )
 
     async def run_agent(
         state: InvestigationState,
@@ -27,6 +38,22 @@ async def build_investigation_graph():
         return await agent_node(
             state,
             tools,
+        )
+
+    async def run_runbook_retrieval(
+        state: InvestigationState,
+    ) -> dict:
+        return await retrieve_relevant_runbooks(
+            state,
+            session,
+        )
+
+    async def run_history_retrieval(
+        state: InvestigationState,
+    ) -> dict:
+        return await retrieve_historical_incidents(
+            state,
+            investigation_service,
         )
 
     graph = StateGraph(
@@ -46,6 +73,16 @@ async def build_investigation_graph():
     graph.add_node(
         "agent",
         run_agent,
+    )
+
+    graph.add_node(
+        "retrieve_runbooks",
+        run_runbook_retrieval,
+    )
+
+    graph.add_node(
+        "retrieve_history",
+        run_history_retrieval,
     )
 
     graph.add_node(
@@ -69,6 +106,11 @@ async def build_investigation_graph():
     )
 
     graph.add_node(
+        "propose_remediation",
+        propose_remediation,
+    )
+
+    graph.add_node(
         "finalize",
         finalize_investigation,
     )
@@ -85,6 +127,16 @@ async def build_investigation_graph():
 
     graph.add_edge(
         "plan",
+        "retrieve_runbooks",
+    )
+
+    graph.add_edge(
+        "retrieve_runbooks",
+        "retrieve_history",
+    )
+
+    graph.add_edge(
+        "retrieve_history",
         "agent",
     )
 
@@ -114,6 +166,11 @@ async def build_investigation_graph():
 
     graph.add_edge(
         "analyze",
+        "propose_remediation",
+    )
+
+    graph.add_edge(
+        "propose_remediation",
         "finalize",
     )
 

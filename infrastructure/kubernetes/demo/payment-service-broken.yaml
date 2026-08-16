@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: payment-service
+  namespace: infrapilot-demo
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: payment-service
+
+  template:
+    metadata:
+      labels:
+        app: payment-service
+
+    spec:
+      containers:
+        - name: payment-service
+          image: python:3.12-slim
+
+          command:
+            - python
+            - -u
+            - -c
+            - |
+              import sys
+              import time
+
+              print(
+                  "ERROR database connection timeout",
+                  flush=True,
+              )
+              print(
+                  "ERROR failed to process payment request",
+                  flush=True,
+              )
+              time.sleep(2)
+              sys.exit(1)
