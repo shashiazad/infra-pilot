@@ -2,24 +2,24 @@ apiVersion: apps/v1
 kind: Deployment
 
 metadata:
-  name: payment-service
-  namespace: infrapilot-demo
+  name: prod-demo-payment
+  namespace: prod-demo
 
 spec:
   replicas: 2
 
   selector:
     matchLabels:
-      app: payment-service
+      app: prod-demo-payment
 
   template:
     metadata:
       labels:
-        app: payment-service
+        app: prod-demo-payment
 
     spec:
       containers:
-        - name: payment-service
+        - name: prod-demo-payment
           image: python:3.12-slim
 
           command:

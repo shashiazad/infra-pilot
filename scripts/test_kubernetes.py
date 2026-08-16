@@ -8,7 +8,7 @@ def main() -> None:
     api = get_core_api()
 
     pods = api.list_namespaced_pod(
-        namespace="infrapilot-demo"
+        namespace="prod-demo"
     )
 
     for pod in pods.items:

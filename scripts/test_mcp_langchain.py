@@ -26,8 +26,8 @@ async def main() -> None:
 
             result = await tool.ainvoke(
                 {
-                    "service": "payment-service",
-                    "namespace": "infrapilot-demo",
+                    "service": "prod-demo-payment",
+                    "namespace": "prod-demo",
                 }
             )
 
@@ -41,8 +41,8 @@ async def main() -> None:
 
             result = await tool.ainvoke(
                 {
-                    "service": "payment-service",
-                    "namespace": "infrapilot-demo",
+                    "service": "prod-demo-payment",
+                    "namespace": "prod-demo",
                 }
             )
 
@@ -56,8 +56,8 @@ async def main() -> None:
 
             result = await tool.ainvoke(
                 {
-                    "service": "payment-service",
-                    "namespace": "infrapilot-demo",
+                    "service": "prod-demo-payment",
+                    "namespace": "prod-demo",
                 }
             )
 

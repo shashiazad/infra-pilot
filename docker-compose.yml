@@ -1,5 +1,7 @@
+name: infra-pilot
+
 services:
-  postgres:
+  infra-pilot-postgres:
     image: pgvector/pgvector:pg16
     container_name: infra-pilot-postgres
     restart: unless-stopped
@@ -8,9 +10,197 @@ services:
       POSTGRES_PASSWORD: infra_pilot
       POSTGRES_DB: infra_pilot
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${INFRA_POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infra_pilot -d infra_pilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  infra-pilot-backend:
+    image: infra-pilot/backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: infra-pilot-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://infra_pilot:infra_pilot@infra-pilot-postgres:5432/infra_pilot
+      PROMETHEUS_URL: http://infra-pilot-prometheus:9090
+      KUBERNETES_CONTEXT: kind-prod-demo-cluster
+      KUBERNETES_NAMESPACE: prod-demo
+      KUBERNETES_HOST_ALIAS: host.docker.internal
+      KUBERNETES_TLS_SERVER_NAME: localhost
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "${HOME}/.kube:/root/.kube:ro"
+      - huggingface_cache:/root/.cache/huggingface
+    ports:
+      - "127.0.0.1:${INFRA_API_PORT:-8001}:8000"
+    depends_on:
+      infra-pilot-postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  infra-pilot-frontend:
+    image: infra-pilot/frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "http://127.0.0.1:${INFRA_API_PORT:-8001}/api/v1"
+    container_name: infra-pilot-frontend
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://infra-pilot-backend:8000/api/v1
+      NEXT_PUBLIC_API_URL: "http://127.0.0.1:${INFRA_API_PORT:-8001}/api/v1"
+    ports:
+      - "127.0.0.1:${INFRA_WEB_PORT:-3000}:3000"
+    depends_on:
+      infra-pilot-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/incidents >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  prod-demo-postgres:
+    image: postgres:16
+    container_name: prod-demo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: payments
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - prod_demo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payments"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  prod-demo-inventory:
+    image: prod-demo/inventory:latest
+    build:
+      context: ./demo/inventory_service
+    container_name: prod-demo-inventory
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${INVENTORY_PORT:-8082}:8080"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  prod-demo-payment:
+    image: prod-demo/payment:latest
+    build:
+      context: ./demo/payment_service
+    container_name: prod-demo-payment
+    restart: unless-stopped
+    environment:
+      DB_HOST: prod-demo-postgres
+      DB_PORT: "5432"
+      DB_NAME: payments
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:${PAYMENT_PORT:-8081}:8080"
+    depends_on:
+      prod-demo-postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  prod-demo-checkout:
+    image: prod-demo/checkout:latest
+    build:
+      context: ./demo/checkout_service
+    container_name: prod-demo-checkout
+    restart: unless-stopped
+    environment:
+      PAYMENT_URL: http://prod-demo-payment:8080
+      INVENTORY_URL: http://prod-demo-inventory:8080
+    ports:
+      - "127.0.0.1:${CHECKOUT_PORT:-8080}:8080"
+    depends_on:
+      prod-demo-inventory:
+        condition: service_healthy
+      prod-demo-payment:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  prod-demo-load-generator:
+    image: prod-demo/load-generator:latest
+    build:
+      context: ./demo/load_generator
+    container_name: prod-demo-load-generator
+    restart: unless-stopped
+    environment:
+      CHECKOUT_URL: http://prod-demo-checkout:8080
+      REQUEST_INTERVAL_SECONDS: "2"
+    depends_on:
+      prod-demo-checkout:
+        condition: service_healthy
+
+  infra-pilot-prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: infra-pilot-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      prod-demo-checkout:
+        condition: service_healthy
+      prod-demo-inventory:
+        condition: service_healthy
+      prod-demo-payment:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  prod_demo_postgres_data:
+  huggingface_cache:
+  prometheus_data:

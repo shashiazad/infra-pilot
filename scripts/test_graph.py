@@ -31,7 +31,7 @@ async def run_graph(session: AsyncSession) -> None:
                 "Payment service is returning "
                 "HTTP 5xx responses."
             ),
-            "service": "payment-service",
+            "service": "prod-demo-payment",
             "severity": "SEV-2",
             "status": "OPEN",
         },

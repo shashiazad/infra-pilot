@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-demo-postgres
+  namespace: prod-demo
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: prod-demo-postgres
+
+  template:
+    metadata:
+      labels:
+        app: prod-demo-postgres
+
+    spec:
+      containers:
+        - name: prod-demo-postgres
+          image: postgres:16
+
+          env:
+            - name: POSTGRES_DB
+              value: payments
+
+            - name: POSTGRES_USER
+              value: postgres
+
+            - name: POSTGRES_PASSWORD
+              value: postgres
+
+          ports:
+            - containerPort: 5432
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-demo-postgres
+  namespace: prod-demo
+
+spec:
+  selector:
+    app: prod-demo-postgres
+
+  ports:
+    - port: 5432
+      targetPort: 5432

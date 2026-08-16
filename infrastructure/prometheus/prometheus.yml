@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prod-demo-payment
+    metrics_path: /metrics/
+    static_configs:
+      - targets:
+          - prod-demo-payment:8080
+
+  - job_name: prod-demo-inventory
+    metrics_path: /metrics/
+    static_configs:
+      - targets:
+          - prod-demo-inventory:8080
+
+  - job_name: prod-demo-checkout
+    metrics_path: /metrics/
+    static_configs:
+      - targets:
+          - prod-demo-checkout:8080

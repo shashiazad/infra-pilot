@@ -75,6 +75,16 @@ class InvestigationRun(Base):
         nullable=True,
     )
 
+    runbooks: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    historical_incidents: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
     tool_iterations: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

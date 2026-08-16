@@ -14,7 +14,7 @@ class FakeStructuredModel:
         return RemediationProposal(
             action="VERIFY_DATABASE_CONNECTIVITY",
             reason="The root cause is not yet confirmed.",
-            target_service="payment-service",
+            target_service="prod-demo-payment",
             risk="LOW",
             commands=[],
             requires_approval=False,
@@ -47,7 +47,7 @@ async def test_remediation_always_requires_approval(
     result = await nodes.propose_remediation(
         {
             "incident": {
-                "service": "payment-service",
+                "service": "prod-demo-payment",
             },
             "analysis": {},
             "evidence": [],

@@ -11,6 +11,7 @@ from fastapi.sse import (
     EventSourceResponse,
     ServerSentEvent,
 )
+from groq import RateLimitError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -25,7 +26,6 @@ from app.schemas.investigation import (
 )
 from app.services.incident_service import IncidentService
 from app.services.investigation_service import InvestigationService
-
 
 router = APIRouter(
     prefix="/incidents",
@@ -170,9 +170,31 @@ async def investigate_incident(
         session
     )
 
-    result = await service.investigate(
-        incident_id
-    )
+    try:
+        result = await service.investigate(
+            incident_id
+        )
+    except RateLimitError as exc:
+        retry_after = exc.response.headers.get(
+            "retry-after"
+        )
+        retry_message = (
+            f" Retry after {retry_after} seconds."
+            if retry_after
+            else " Please retry after the provider quota resets."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "The investigation model is temporarily rate limited."
+                + retry_message
+            ),
+            headers=(
+                {"Retry-After": retry_after}
+                if retry_after
+                else None
+            ),
+        ) from exc
 
     if result is None:
         raise HTTPException(

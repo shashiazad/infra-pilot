@@ -17,7 +17,7 @@ async def test_executor_rejects_non_allow_listed_action() -> None:
     result = await executor.execute_remediation(
         {
             "action": "RUN_SHELL_COMMAND",
-            "target_service": "payment-service",
+            "target_service": "prod-demo-payment",
             "commands": ["echo unsafe"],
         }
     )
@@ -36,7 +36,7 @@ async def test_executor_uses_kubernetes_api(monkeypatch) -> None:
     result = await executor.execute_remediation(
         {
             "action": "RESTART_DEPLOYMENT",
-            "target_service": "payment-service",
+            "target_service": "prod-demo-payment",
             "commands": ["this value must be ignored"],
         }
     )
@@ -44,9 +44,9 @@ async def test_executor_uses_kubernetes_api(monkeypatch) -> None:
     assert result == {
         "success": True,
         "action": "RESTART_DEPLOYMENT",
-        "service": "payment-service",
-        "namespace": "infrapilot-demo",
+        "service": "prod-demo-payment",
+        "namespace": "prod-demo",
     }
     assert len(api.calls) == 1
-    assert api.calls[0]["name"] == "payment-service"
-    assert api.calls[0]["namespace"] == "infrapilot-demo"
+    assert api.calls[0]["name"] == "prod-demo-payment"
+    assert api.calls[0]["namespace"] == "prod-demo"

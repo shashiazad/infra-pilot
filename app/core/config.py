@@ -9,7 +9,14 @@ class Settings(BaseSettings):
     database_url: str
 
     groq_api_key: str
-    llm_model: str = "llama-3.3-70b-versatile"
+    llm_model: str = "openai/gpt-oss-120b"
+    llm_fallback_model: str = "openai/gpt-oss-20b"
+
+    prometheus_url: str = "http://localhost:9090"
+    kubernetes_context: str = "kind-prod-demo-cluster"
+    kubernetes_namespace: str = "prod-demo"
+    kubernetes_host_alias: str | None = None
+    kubernetes_tls_server_name: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

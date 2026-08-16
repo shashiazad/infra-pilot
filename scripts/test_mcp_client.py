@@ -21,7 +21,7 @@ async def main() -> None:
         result = await client.call_tool(
             "get_service_logs",
             {
-                "service": "payment-service",
+                "service": "prod-demo-payment",
             },
         )
 

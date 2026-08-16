@@ -191,6 +191,8 @@ class InvestigationService:
             "approval_status": run.approval_status,
             "remediation_status": run.remediation_status,
             "remediation_result": run.remediation_result,
+            "runbooks": run.runbooks or [],
+            "historical_incidents": run.historical_incidents or [],
             "tool_iterations": run.tool_iterations,
             "evidence": [
                 {
@@ -228,6 +230,48 @@ class InvestigationService:
             }
             for run in runs
         ]
+
+    async def get_investigations(self) -> list[dict[str, Any]]:
+        rows = await self.investigation_repository.get_all_runs()
+        return [
+            {
+                "run_id": run.id,
+                "incident_id": run.incident_id,
+                "incident_title": incident.title,
+                "service": incident.service,
+                "severity": incident.severity,
+                "status": run.status,
+                "tool_iterations": run.tool_iterations,
+                "confidence": (
+                    run.analysis or {}
+                ).get("confidence"),
+                "started_at": run.started_at,
+                "completed_at": run.completed_at,
+            }
+            for run, incident in rows
+        ]
+
+    async def get_remediations(self) -> list[dict[str, Any]]:
+        rows = await self.investigation_repository.get_remediation_runs()
+        results = []
+        for run, incident in rows:
+            proposal = run.remediation_proposal or {}
+            results.append(
+                {
+                    "run_id": run.id,
+                    "incident_id": run.incident_id,
+                    "incident_title": incident.title,
+                    "service": incident.service,
+                    "time": run.completed_at or run.started_at,
+                    "action": proposal.get("action", "UNKNOWN"),
+                    "target": proposal.get("target_service", incident.service),
+                    "risk": proposal.get("risk", "UNKNOWN"),
+                    "approval_status": run.approval_status,
+                    "remediation_status": run.remediation_status,
+                    "result": run.remediation_result,
+                }
+            )
+        return results
 
     async def get_historical_context(
         self,

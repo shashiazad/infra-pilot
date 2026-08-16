@@ -3,13 +3,14 @@ from typing import Any
 from kubernetes.client.exceptions import ApiException
 from mcp.server import MCPServer
 
-from app.infrastructure.prometheus_client import (
-    query_prometheus,
-)
+from app.core.config import settings
 from app.infrastructure.kubernetes_client import (
     get_apps_api,
     get_core_api,
     get_custom_objects_api,
+)
+from app.infrastructure.prometheus_client import (
+    query_prometheus,
 )
 
 mcp = MCPServer("InfraPilot Infrastructure")
@@ -18,7 +19,7 @@ mcp = MCPServer("InfraPilot Infrastructure")
 @mcp.tool()
 def get_service_logs(
     service: str,
-    namespace: str = "infrapilot-demo",
+    namespace: str = settings.kubernetes_namespace,
 ) -> dict[str, Any]:
     """
     Retrieve recent Kubernetes pod logs for a service.
@@ -78,7 +79,7 @@ def get_service_logs(
 @mcp.tool()
 def get_service_metrics(
     service: str,
-    namespace: str = "infrapilot-demo",
+    namespace: str = settings.kubernetes_namespace,
 ) -> dict[str, Any]:
     """
     Retrieve current Kubernetes CPU and memory usage
@@ -167,7 +168,7 @@ def get_service_metrics(
 @mcp.tool()
 async def get_application_metrics(
     service: str,
-    namespace: str = "infrapilot-demo",
+    namespace: str = settings.kubernetes_namespace,
 ) -> dict[str, Any]:
     """
     Retrieve application-level HTTP metrics
@@ -223,7 +224,7 @@ async def get_application_metrics(
 @mcp.tool()
 def get_deployment_status(
     service: str,
-    namespace: str = "infrapilot-demo",
+    namespace: str = settings.kubernetes_namespace,
 ) -> dict[str, Any]:
     """
     Retrieve Kubernetes deployment status and replica health.
@@ -280,7 +281,7 @@ def get_deployment_status(
 @mcp.tool()
 def get_pod_status(
     service: str,
-    namespace: str = "infrapilot-demo",
+    namespace: str = settings.kubernetes_namespace,
 ) -> dict[str, Any]:
 
     api = get_core_api()
@@ -332,7 +333,7 @@ def get_pod_status(
 @mcp.tool()
 def get_pod_events(
     service: str,
-    namespace: str = "infrapilot-demo",
+    namespace: str = settings.kubernetes_namespace,
 ) -> dict[str, Any]:
 
     api = get_core_api()

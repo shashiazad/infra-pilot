@@ -49,7 +49,7 @@ def make_run(**overrides):
         "remediation_status": "NOT_STARTED",
         "remediation_proposal": {
             "action": "RESTART_DEPLOYMENT",
-            "target_service": "payment-service",
+            "target_service": "prod-demo-payment",
         },
         "remediation_result": None,
     }

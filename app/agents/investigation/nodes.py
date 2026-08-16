@@ -13,8 +13,8 @@ from app.agents.investigation.state import (
     InvestigationState,
 )
 from app.llm.groq import (
-    create_groq_model,
     create_structured_groq_model,
+    create_tool_groq_model,
 )
 from app.rag.retriever import retrieve_runbooks
 from app.schemas.investigation import (
@@ -39,9 +39,7 @@ async def agent_node(
     incident = state["incident"]
     plan = state["investigation_plan"]
 
-    model = create_groq_model()
-
-    model_with_tools = model.bind_tools(
+    model_with_tools = create_tool_groq_model(
         tools
     )
 

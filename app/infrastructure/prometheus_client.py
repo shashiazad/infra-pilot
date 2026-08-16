@@ -2,8 +2,7 @@ from typing import Any
 
 import httpx
 
-
-PROMETHEUS_URL = "http://localhost:9090"
+from app.core.config import settings
 
 
 async def query_prometheus(
@@ -12,7 +11,7 @@ async def query_prometheus(
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{PROMETHEUS_URL}/api/v1/query",
+            f"{settings.prometheus_url}/api/v1/query",
             params={
                 "query": query,
             },

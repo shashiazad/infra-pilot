@@ -6,6 +6,8 @@ from app.api.v1.incidents import router as incidents_router
 from app.api.v1.investigations import (
     router as investigations_router,
 )
+from app.api.v1.runbooks import router as runbooks_router
+from app.api.v1.services import router as services_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -40,6 +42,9 @@ app.include_router(
     investigations_router,
     prefix="/api/v1",
 )
+
+app.include_router(runbooks_router, prefix="/api/v1")
+app.include_router(services_router, prefix="/api/v1")
 
 
 @app.get("/")

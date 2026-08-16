@@ -2,10 +2,11 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
+from app.core.config import settings
 from app.infrastructure.kubernetes_client import get_apps_api
 
 ALLOWED_ACTIONS = frozenset({"RESTART_DEPLOYMENT"})
-DEFAULT_NAMESPACE = "infrapilot-demo"
+DEFAULT_NAMESPACE = settings.kubernetes_namespace
 
 
 async def execute_remediation(

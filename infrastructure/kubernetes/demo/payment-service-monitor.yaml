@@ -2,8 +2,8 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 
 metadata:
-  name: payment-service
-  namespace: infrapilot-demo
+  name: prod-demo-payment
+  namespace: prod-demo
 
   labels:
     release: monitoring
@@ -11,14 +11,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: payment-service
+      app: prod-demo-payment
 
   namespaceSelector:
     matchNames:
-      - infrapilot-demo
+      - prod-demo
 
   endpoints:
     - port: http
       path: /metrics
       interval: 15s
-      

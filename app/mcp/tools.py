@@ -6,6 +6,8 @@ from langchain_core.tools import BaseTool, StructuredTool
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+from app.core.config import settings
+
 SERVER_PATH = (
     Path(__file__).parent
     / "servers"
@@ -95,7 +97,7 @@ def _create_langchain_tool(
 
     async def call_tool(
         service: str,
-        namespace: str = "infrapilot-demo",
+        namespace: str = settings.kubernetes_namespace,
     ) -> Any:
 
         return await _call_mcp_tool(

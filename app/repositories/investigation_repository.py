@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models.incident import Incident
 from app.db.models.investigation import (
     InvestigationEvidence,
     InvestigationRun,
@@ -100,6 +101,12 @@ class InvestigationRepository:
 
         run.remediation_proposal = result.get(
             "remediation_proposal"
+        )
+
+        run.runbooks = result.get("runbooks", [])
+        run.historical_incidents = result.get(
+            "historical_incidents",
+            [],
         )
 
         if run.remediation_proposal:
@@ -216,3 +223,24 @@ class InvestigationRepository:
         )
 
         return list(result.scalars().all())
+
+    async def get_all_runs(
+        self,
+    ) -> list[tuple[InvestigationRun, Incident]]:
+        result = await self.session.execute(
+            select(InvestigationRun, Incident)
+            .join(Incident, Incident.id == InvestigationRun.incident_id)
+            .order_by(InvestigationRun.started_at.desc())
+        )
+        return list(result.tuples().all())
+
+    async def get_remediation_runs(
+        self,
+    ) -> list[tuple[InvestigationRun, Incident]]:
+        result = await self.session.execute(
+            select(InvestigationRun, Incident)
+            .join(Incident, Incident.id == InvestigationRun.incident_id)
+            .where(InvestigationRun.remediation_proposal.is_not(None))
+            .order_by(InvestigationRun.completed_at.desc())
+        )
+        return list(result.tuples().all())

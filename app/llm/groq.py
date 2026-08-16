@@ -1,24 +1,42 @@
-from typing import TypeVar
-
+from groq import RateLimitError
+from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
 
 from app.core.config import settings
 
-T = TypeVar("T", bound=BaseModel)
 
-
-def create_groq_model() -> ChatGroq:
+def create_groq_model(
+    model_name: str | None = None,
+) -> ChatGroq:
     return ChatGroq(
-        model=settings.llm_model,
+        model=model_name or settings.llm_model,
         api_key=settings.groq_api_key,
         temperature=0,
     )
 
 
-def create_structured_groq_model(
+def create_structured_groq_model[T: BaseModel](
     schema: type[T],
-) -> ChatGroq:
-    model = create_groq_model()
+):
+    primary = create_groq_model().with_structured_output(schema)
+    fallback = create_groq_model(
+        settings.llm_fallback_model
+    ).with_structured_output(schema)
+    return primary.with_fallbacks(
+        [fallback],
+        exceptions_to_handle=(RateLimitError,),
+    )
 
-    return model.with_structured_output(schema)
+
+def create_tool_groq_model(
+    tools: list[BaseTool],
+):
+    primary = create_groq_model().bind_tools(tools)
+    fallback = create_groq_model(
+        settings.llm_fallback_model
+    ).bind_tools(tools)
+    return primary.with_fallbacks(
+        [fallback],
+        exceptions_to_handle=(RateLimitError,),
+    )

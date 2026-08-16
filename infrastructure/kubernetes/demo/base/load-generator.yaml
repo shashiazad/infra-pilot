@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-demo-load-generator
+  namespace: prod-demo
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: prod-demo-load-generator
+
+  template:
+    metadata:
+      labels:
+        app: prod-demo-load-generator
+
+    spec:
+      containers:
+        - name: prod-demo-load-generator
+          image: prod-demo/load-generator:latest
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: CHECKOUT_URL
+              value: http://prod-demo-checkout:8080
+
+            - name: REQUEST_INTERVAL_SECONDS
+              value: "2"

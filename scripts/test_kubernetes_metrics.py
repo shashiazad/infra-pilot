@@ -10,7 +10,7 @@ def main() -> None:
         api.list_namespaced_custom_object(
             group="metrics.k8s.io",
             version="v1beta1",
-            namespace="infrapilot-demo",
+            namespace="prod-demo",
             plural="pods",
         )
     )

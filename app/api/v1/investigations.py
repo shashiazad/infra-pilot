@@ -12,6 +12,8 @@ from app.db.session import get_db
 from app.schemas.investigation import (
     ApprovalResponse,
     InvestigationDetailResponse,
+    InvestigationListResponse,
+    RemediationAuditResponse,
     RemediationExecutionResponse,
 )
 from app.services.investigation_service import (
@@ -22,6 +24,28 @@ router = APIRouter(
     prefix="/investigations",
     tags=["Investigations"],
 )
+
+
+@router.get(
+    "",
+    response_model=list[InvestigationListResponse],
+)
+async def get_investigations(
+    session: AsyncSession = Depends(get_db),
+) -> list[InvestigationListResponse]:
+    service = InvestigationService(session)
+    return await service.get_investigations()
+
+
+@router.get(
+    "/remediations/audit",
+    response_model=list[RemediationAuditResponse],
+)
+async def get_remediations(
+    session: AsyncSession = Depends(get_db),
+) -> list[RemediationAuditResponse]:
+    service = InvestigationService(session)
+    return await service.get_remediations()
 
 
 @router.get(

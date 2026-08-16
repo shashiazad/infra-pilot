@@ -23,3 +23,12 @@ class RunbookRepository:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def get_all(self) -> list[RunbookChunk]:
+        result = await self.session.execute(
+            select(RunbookChunk).order_by(
+                RunbookChunk.title.asc(),
+                RunbookChunk.created_at.asc(),
+            )
+        )
+        return list(result.scalars().all())

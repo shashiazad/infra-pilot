@@ -82,6 +82,8 @@ class InvestigationDetailResponse(BaseModel):
     approval_status: str | None
     remediation_status: str | None
     remediation_result: dict[str, Any] | None
+    runbooks: list[dict[str, Any]] = Field(default_factory=list)
+    historical_incidents: list[dict[str, Any]] = Field(default_factory=list)
 
     tool_iterations: int
 
@@ -97,6 +99,27 @@ class InvestigationSummaryResponse(BaseModel):
     tool_iterations: int
     started_at: datetime
     completed_at: datetime | None
+
+
+class InvestigationListResponse(InvestigationSummaryResponse):
+    incident_title: str
+    service: str
+    severity: str
+    confidence: float | None
+
+
+class RemediationAuditResponse(BaseModel):
+    run_id: uuid.UUID
+    incident_id: uuid.UUID
+    incident_title: str
+    service: str
+    time: datetime
+    action: str
+    target: str
+    risk: str
+    approval_status: str | None
+    remediation_status: str | None
+    result: dict[str, Any] | None
 
 
 class ApprovalResponse(BaseModel):

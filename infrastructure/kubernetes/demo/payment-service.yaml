@@ -2,26 +2,26 @@ apiVersion: apps/v1
 kind: Deployment
 
 metadata:
-  name: payment-service
-  namespace: infrapilot-demo
+  name: prod-demo-payment
+  namespace: prod-demo
 
 spec:
   replicas: 2
 
   selector:
     matchLabels:
-      app: payment-service
+      app: prod-demo-payment
 
   template:
     metadata:
       labels:
-        app: payment-service
+        app: prod-demo-payment
 
     spec:
       containers:
-        - name: payment-service
+        - name: prod-demo-payment
 
-          image: infrapilot/payment-service:latest
+          image: prod-demo/payment:latest
 
           imagePullPolicy: IfNotPresent
 
@@ -42,15 +42,15 @@ apiVersion: v1
 kind: Service
 
 metadata:
-  name: payment-service
-  namespace: infrapilot-demo
+  name: prod-demo-payment
+  namespace: prod-demo
 
   labels:
-    app: payment-service
+    app: prod-demo-payment
 
 spec:
   selector:
-    app: payment-service
+    app: prod-demo-payment
 
   ports:
     - name: http

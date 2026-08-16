@@ -1,95 +1,102 @@
-import random
+import os
 import time
 
-from fastapi import FastAPI, HTTPException, Response
-from prometheus_client import (
-    CONTENT_TYPE_LATEST,
-    Counter,
-    Histogram,
-    generate_latest,
-    make_asgi_app,
-)
+import psycopg
+from fastapi import FastAPI, HTTPException
+from prometheus_client import Counter, Histogram, make_asgi_app
+
+app = FastAPI(title="Payment Service")
 
 
-app = FastAPI(
-    title="InfraPilot Demo Payment Service"
-)
+DB_HOST = os.getenv("DB_HOST", "prod-demo-postgres")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+DB_NAME = os.getenv("DB_NAME", "payments")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
 
 
-REQUEST_COUNT = Counter(
+REQUESTS = Counter(
     "payment_http_requests_total",
-    "Total payment HTTP requests",
-    ["method", "endpoint", "status"],
+    "Payment HTTP requests",
+    ["status"],
 )
 
-
-REQUEST_LATENCY = Histogram(
+LATENCY = Histogram(
     "payment_http_request_duration_seconds",
-    "Payment HTTP request latency",
-    ["method", "endpoint"],
+    "Payment request latency",
 )
 
 
 @app.get("/health")
-async def health() -> dict:
-    return {
-        "status": "healthy"
-    }
+async def health():
+    return {"status": "healthy"}
+
+
+@app.get("/ready")
+async def ready():
+    try:
+        with psycopg.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            connect_timeout=2,
+        ):
+            pass
+
+        return {"status": "ready"}
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"database unavailable: {exc}",
+        ) from exc
 
 
 @app.post("/payments")
-async def create_payment() -> dict:
-
+async def payment():
     start = time.perf_counter()
 
     try:
-        # Intentionally create failures
-        # for InfraPilot testing.
-        if random.random() < 0.35:
+        with psycopg.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            connect_timeout=2,
+        ) as conn:
 
-            REQUEST_COUNT.labels(
-                method="POST",
-                endpoint="/payments",
-                status="500",
-            ).inc()
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
 
-            raise HTTPException(
-                status_code=500,
-                detail="database connection timeout",
-            )
-
-        REQUEST_COUNT.labels(
-            method="POST",
-            endpoint="/payments",
-            status="200",
-        ).inc()
+        REQUESTS.labels(status="200").inc()
 
         return {
-            "status": "processed"
+            "status": "processed",
         }
 
-    finally:
+    except Exception as exc:
+        print(
+            f"ERROR database connection failure: {exc}",
+            flush=True,
+        )
 
-        REQUEST_LATENCY.labels(
-            method="POST",
-            endpoint="/payments",
-        ).observe(
+        REQUESTS.labels(status="500").inc()
+
+        raise HTTPException(
+            status_code=500,
+            detail="database connection failure",
+        ) from exc
+
+    finally:
+        LATENCY.observe(
             time.perf_counter() - start
         )
 
 
-metrics_app = make_asgi_app()
-
-
-@app.get("/metrics", include_in_schema=False)
-async def metrics() -> Response:
-    return Response(
-        content=generate_latest(),
-        media_type=CONTENT_TYPE_LATEST,
-    )
-
-
 app.mount(
     "/metrics",
-    metrics_app,
+    make_asgi_app(),
 )
