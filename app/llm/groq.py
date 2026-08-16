@@ -19,10 +19,18 @@ def create_groq_model(
 def create_structured_groq_model[T: BaseModel](
     schema: type[T],
 ):
-    primary = create_groq_model().with_structured_output(schema)
+    primary = create_groq_model().with_structured_output(
+        schema,
+        method="json_schema",
+        strict=True,
+    )
     fallback = create_groq_model(
         settings.llm_fallback_model
-    ).with_structured_output(schema)
+    ).with_structured_output(
+        schema,
+        method="json_schema",
+        strict=True,
+    )
     return primary.with_fallbacks(
         [fallback],
         exceptions_to_handle=(RateLimitError,),

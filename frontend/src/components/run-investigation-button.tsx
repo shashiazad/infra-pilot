@@ -6,7 +6,15 @@ import { useState } from "react";
 import { apiPost } from "@/lib/api";
 import type { Investigation } from "@/types";
 
-export function RunInvestigationButton({ incidentId }: { incidentId: string }) {
+interface RunInvestigationButtonProps {
+  incidentId: string;
+  rerun?: boolean;
+}
+
+export function RunInvestigationButton({
+  incidentId,
+  rerun = false,
+}: RunInvestigationButtonProps) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +33,7 @@ export function RunInvestigationButton({ incidentId }: { incidentId: string }) {
 
   return <div className="action-stack">
     <button onClick={run} disabled={running} className="button button-primary">
-      {running ? <><span className="spinner" /> Investigating infrastructure…</> : "Run investigation"}
+      {running ? <><span className="spinner" /> {rerun ? "Rerunning investigation…" : "Investigating infrastructure…"}</> : rerun ? "Rerun investigation" : "Run investigation"}
     </button>
     {error && <p className="inline-error" role="alert">{error}</p>}
   </div>;
