@@ -2,6 +2,9 @@
 
 A lightweight FastAPI starter for infrastructure automation work.
 
+Detailed architecture and implementation documentation is available in the
+[InfraPilot knowledge base](knowledge-base/README.md).
+
 ## Features
 
 - FastAPI application scaffold
