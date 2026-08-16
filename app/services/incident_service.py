@@ -8,7 +8,6 @@ from app.schemas.incident import IncidentCreate, IncidentUpdate
 
 
 class IncidentService:
-
     def __init__(self, session: AsyncSession) -> None:
         self.repository = IncidentRepository(session)
 
@@ -43,16 +42,12 @@ class IncidentService:
         data: IncidentUpdate,
     ) -> Incident | None:
 
-        incident = await self.repository.get_by_id(
-            incident_id
-        )
+        incident = await self.repository.get_by_id(incident_id)
 
         if incident is None:
             return None
 
-        update_data = data.model_dump(
-            exclude_unset=True
-        )
+        update_data = data.model_dump(exclude_unset=True)
 
         for field, value in update_data.items():
             setattr(incident, field, value)
@@ -67,9 +62,7 @@ class IncidentService:
         incident_id: uuid.UUID,
     ) -> bool:
 
-        incident = await self.repository.get_by_id(
-            incident_id
-        )
+        incident = await self.repository.get_by_id(incident_id)
 
         if incident is None:
             return False

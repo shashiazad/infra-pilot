@@ -4,12 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.repositories.incident_repository import IncidentRepository
 from app.schemas.incident import (
     IncidentCreate,
     IncidentResponse,
     IncidentUpdate,
 )
+from app.schemas.investigation import InvestigationResult
 from app.services.incident_service import IncidentService
+from app.services.investigation_service import InvestigationService
 
 router = APIRouter(
     prefix="/incidents",
@@ -56,9 +59,7 @@ async def get_incident(
 
     service = IncidentService(session)
 
-    incident = await service.get_incident(
-        incident_id
-    )
+    incident = await service.get_incident(incident_id)
 
     if incident is None:
         raise HTTPException(
@@ -106,12 +107,37 @@ async def delete_incident(
 
     service = IncidentService(session)
 
-    deleted = await service.delete_incident(
-        incident_id
-    )
+    deleted = await service.delete_incident(incident_id)
 
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Incident not found",
         )
+
+
+@router.post(
+    "/{incident_id}/investigate",
+    response_model=InvestigationResult,
+)
+async def investigate_incident(
+    incident_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+) -> InvestigationResult:
+
+    repository = IncidentRepository(session)
+
+    service = InvestigationService()
+
+    result = await service.investigate(
+        incident_id,
+        repository,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Incident not found",
+        )
+
+    return result

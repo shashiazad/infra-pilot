@@ -60,20 +60,18 @@ def run_migrations_online() -> None:
 
     """
     connectable = engine_from_config(
-    {
-        "sqlalchemy.url": settings.database_url.replace(
-            "postgresql+asyncpg://",
-            "postgresql+psycopg://",
-        ),
-    },
-    prefix="sqlalchemy.",
-    poolclass=pool.NullPool,
-)
+        {
+            "sqlalchemy.url": settings.database_url.replace(
+                "postgresql+asyncpg://",
+                "postgresql+psycopg://",
+            ),
+        },
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

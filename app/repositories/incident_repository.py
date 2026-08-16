@@ -7,7 +7,6 @@ from app.db.models.incident import Incident
 
 
 class IncidentRepository:
-
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
@@ -25,9 +24,7 @@ class IncidentRepository:
     ) -> Incident | None:
 
         result = await self.session.execute(
-            select(Incident).where(
-                Incident.id == incident_id
-            )
+            select(Incident).where(Incident.id == incident_id)
         )
 
         return result.scalar_one_or_none()
@@ -35,9 +32,7 @@ class IncidentRepository:
     async def get_all(self) -> list[Incident]:
 
         result = await self.session.execute(
-            select(Incident).order_by(
-                Incident.created_at.desc()
-            )
+            select(Incident).order_by(Incident.created_at.desc())
         )
 
         return list(result.scalars().all())
