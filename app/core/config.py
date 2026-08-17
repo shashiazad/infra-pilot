@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     groq_api_key: str
     llm_model: str = "openai/gpt-oss-120b"
     llm_fallback_model: str = "openai/gpt-oss-20b"
+    llm_structured_model: str = "openai/gpt-oss-120b"
+    llm_structured_fallback_model: str = "openai/gpt-oss-20b"
 
     prometheus_url: str = "http://localhost:9090"
     kubernetes_context: str = "kind-prod-demo-cluster"

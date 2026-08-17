@@ -1,4 +1,4 @@
-from groq import RateLimitError
+from groq import BadRequestError, RateLimitError
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
@@ -19,13 +19,15 @@ def create_groq_model(
 def create_structured_groq_model[T: BaseModel](
     schema: type[T],
 ):
-    primary = create_groq_model().with_structured_output(
+    primary = create_groq_model(
+        settings.llm_structured_model
+    ).with_structured_output(
         schema,
         method="json_schema",
         strict=True,
     )
     fallback = create_groq_model(
-        settings.llm_fallback_model
+        settings.llm_structured_fallback_model
     ).with_structured_output(
         schema,
         method="json_schema",
@@ -33,7 +35,10 @@ def create_structured_groq_model[T: BaseModel](
     )
     return primary.with_fallbacks(
         [fallback],
-        exceptions_to_handle=(RateLimitError,),
+        exceptions_to_handle=(
+            RateLimitError,
+            BadRequestError,
+        ),
     )
 
 

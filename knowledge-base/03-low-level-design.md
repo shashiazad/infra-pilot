@@ -38,8 +38,10 @@ variables with `.env` as the local default source.
 Required runtime settings are `DATABASE_URL` and `GROQ_API_KEY`. Important
 defaults are:
 
-- primary model: `openai/gpt-oss-120b`
-- fallback model: `openai/gpt-oss-20b`
+- tool-calling model: `LLM_MODEL` (defaults to `openai/gpt-oss-120b`)
+- tool-calling fallback: `LLM_FALLBACK_MODEL` (defaults to `openai/gpt-oss-20b`)
+- strict structured-output model: `LLM_STRUCTURED_MODEL` (defaults to `openai/gpt-oss-120b`)
+- structured-output fallback: `LLM_STRUCTURED_FALLBACK_MODEL` (defaults to `openai/gpt-oss-20b`)
 - Kubernetes context: `kind-prod-demo-cluster`
 - namespace: `prod-demo`
 - Prometheus URL: `http://localhost:9090` outside Compose

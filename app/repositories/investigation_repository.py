@@ -129,9 +129,30 @@ class InvestigationRepository:
     async def fail_run(
         self,
         run: InvestigationRun,
+        result: dict[str, Any] | None = None,
     ) -> None:
 
         run.status = "FAILED"
+
+        if result:
+            run.classification = result.get(
+                "classification"
+            ) or None
+            run.investigation_plan = result.get(
+                "investigation_plan"
+            ) or None
+            run.runbooks = result.get(
+                "runbooks",
+                [],
+            )
+            run.historical_incidents = result.get(
+                "historical_incidents",
+                [],
+            )
+            run.tool_iterations = result.get(
+                "tool_iterations",
+                0,
+            )
 
         run.completed_at = datetime.now(
             UTC

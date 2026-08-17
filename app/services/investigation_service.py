@@ -53,6 +53,8 @@ class InvestigationService:
             )
         )
 
+        result: dict[str, Any] | None = None
+
         try:
 
             graph = (
@@ -100,17 +102,30 @@ class InvestigationService:
                 "final_result": {},
             }
 
-            result = await graph.ainvoke(
-                initial_state
-            )
+            result = initial_state
+            persisted_evidence_count = 0
 
-            await (
-                self.investigation_repository
-                .save_evidence(
-                    run.id,
-                    result["evidence"],
-                )
-            )
+            async for state in graph.astream(
+                initial_state,
+                stream_mode="values",
+            ):
+                result = state
+                evidence = state.get("evidence", [])
+                new_evidence = evidence[
+                    persisted_evidence_count:
+                ]
+
+                if new_evidence:
+                    await (
+                        self.investigation_repository
+                        .save_evidence(
+                            run.id,
+                            new_evidence,
+                        )
+                    )
+                    persisted_evidence_count = len(
+                        evidence
+                    )
 
             completed_run = await (
                 self.investigation_repository
@@ -155,7 +170,7 @@ class InvestigationService:
 
             await (
                 self.investigation_repository
-                .fail_run(run)
+                .fail_run(run, result)
             )
 
             raise
