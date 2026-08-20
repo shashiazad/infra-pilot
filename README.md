@@ -1,14 +1,6 @@
 # infra-pilot
 
-A lightweight FastAPI starter for infrastructure automation work.
-
-Detailed architecture and implementation documentation is available in the
-[InfraPilot knowledge base](knowledge-base/README.md).
-
-## Features
-
-- FastAPI application scaffold
-- Health endpoint at `/api/v1/health`
+- FastAPI application
 - PostgreSQL via Docker Compose
 - Environment-based settings
 
@@ -23,13 +15,6 @@ starts the FastAPI backend and Next.js dashboard, and launches the simulated
 demo request path (`checkout -> inventory + payment`) with a load
 generator and Prometheus. InfraPilot components retain the `infra-pilot-*`
 names; monitored workload components use `prod-demo-*` names.
-
-The prefixes make the boundary explicit:
-
-- `infra-pilot-*`: the real InfraPilot platform (`backend`, `frontend`,
-  `postgres`, and `prometheus`).
-- `prod-demo-*`: disposable services that imitate a production workload
-  (`checkout`, `inventory`, `payment`, `load-generator`, and their database).
 
 - Dashboard: http://localhost:3000
 - InfraPilot API: http://127.0.0.1:8001/docs
